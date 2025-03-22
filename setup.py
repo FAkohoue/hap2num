@@ -12,9 +12,13 @@ setup(
     url="https://github.com/FAkohoue/hap2num",
     packages=find_packages(),
     install_requires=[
+        "os",
         "pandas",
-        "numpy",
-        "tqdm"
+        "nump",
+        "logging",
+        "multiprocessing",
+        "tqdm",
+        "io"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
