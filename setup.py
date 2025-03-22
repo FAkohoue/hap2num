@@ -1,4 +1,3 @@
-# setup.py
 from setuptools import setup, find_packages
 
 setup(
@@ -12,13 +11,9 @@ setup(
     url="https://github.com/FAkohoue/hap2num",
     packages=find_packages(),
     install_requires=[
-        "os",
         "pandas",
-        "nump",
-        "logging",
-        "multiprocessing",
-        "tqdm",
-        "io"
+        "numpy",
+        "tqdm"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

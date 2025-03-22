@@ -1,7 +1,3 @@
-os
 pandas
-nump
-logging
-multiprocessing
+numpy
 tqdm
-io
