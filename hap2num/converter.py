@@ -57,7 +57,6 @@ The processed output file can be used for downstream genetic analyses such as GW
 and population structure analysis.
 
 """
-import warnings
 import os
 import pandas as pd
 import numpy as np
@@ -65,6 +64,7 @@ import logging
 from multiprocessing import Pool
 from tqdm import tqdm
 from io import StringIO
+import warnings
 
 def convert_genotypes(args):
     """Convert genotypes to numeric format."""
@@ -78,9 +78,22 @@ def convert_genotypes(args):
     data['marker'] = marker
     return data
 
+    #remove warning
+def warn(*args, **kwargs):
+    pass
+import warnings
+warnings.warn = warn
+
 def process_hap_to_numeric(input_file: str, output_file: str, num_processes: int = 60, batch_size: int = 5000, 
                             format_type: str = "012", chunk_size: int = 1000):
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # Suppress warnings globally
+    warnings.simplefilter("ignore")
+
+def warn(*args, **kwargs):
+    pass
+    warnings.warn = warn
     
     # Define genotype mappings based on format type
     genotype_mappings = {
