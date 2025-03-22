@@ -57,7 +57,7 @@ The processed output file can be used for downstream genetic analyses such as GW
 and population structure analysis.
 
 """
-
+import warnings
 import os
 import pandas as pd
 import numpy as np
