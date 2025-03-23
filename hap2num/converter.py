@@ -98,10 +98,11 @@ def convert_genotypes(args):
     ref_allele = data['REF'].values[0]
     alt_allele = data['ALT'].values[0]
     genotype_map = get_binary_genotype_map(ref_allele, alt_allele, format_type)
-        
+    
     # Convert genotypes to binary values based on the mapping
-    for col in data.columns[5:]:
-        data[col] = data[col].apply(lambda x: genotype_map.get(x) if pd.notna(x) else '-9')
+    sample_cols = data.columns[5:]
+    for col in sample_cols:
+        data[col] = data[col].apply(lambda x: genotype_map.get(x, '-9') if pd.notna(x) else '-9')
     
     return data
 
@@ -117,6 +118,10 @@ def process_hap_to_numeric(input_file: str, output_file: str, num_processes: int
         
         if list(df.columns[:5]) != required_columns:
             raise ValueError(f"First five columns must be: {required_columns}")
+        
+        # Convert sample columns to strings to avoid dtype issues
+        sample_cols = df.columns[5:]
+        df[sample_cols] = df[sample_cols].astype(str)
         
         markers = df['SNP'].unique()
         marker_data = [(marker, df[df['SNP'] == marker], format_type) for marker in markers]
@@ -134,12 +139,10 @@ def process_hap_to_numeric(input_file: str, output_file: str, num_processes: int
             header_written = False
             for batch_idx, batch_df in enumerate(processed_batches):
                 buffer = StringIO()
-                batch_df.to_csv(buffer, index=False, sep='\t', quoting=1)
+                batch_df.to_csv(buffer, index=False, sep='\t', header=not header_written, quoting=1)
+                fout.write(buffer.getvalue())
                 if not header_written:
-                    fout.write(buffer.getvalue())
                     header_written = True
-                else:
-                    fout.write(buffer.getvalue().split('\n', 1)[1])
                 logging.info(f"Batch {batch_idx+1} written")
         
         logging.info("Conversion completed successfully")
