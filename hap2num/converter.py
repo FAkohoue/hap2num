@@ -73,36 +73,35 @@ from tqdm import tqdm
 from io import StringIO
 import warnings
 
+# Create conversion map based on format type
+def get_binary_genotype_map(ref_allele, alt_allele):
+    if format_type == "012":
+        return {
+            f'{ref_allele}{ref_allele}': '0',
+            f'{ref_allele}{alt_allele}': '1',
+            f'{alt_allele}{ref_allele}': '1',
+            f'{alt_allele}{alt_allele}': '2'
+        }
+    elif format_type == "-101":
+        return {
+            f'{ref_allele}{ref_allele}': '-1',
+            f'{ref_allele}{alt_allele}': '0',
+            f'{alt_allele}{ref_allele}': '0',
+            f'{alt_allele}{alt_allele}': '1'
+        }
+    else:
+        raise ValueError("Invalid output format_type. Choose either '012' or '-101'.")
+
 def convert_genotypes(args):
     """Convert genotypes to numeric format using explicit allele combinations."""
     marker, data, format_type = args
-    ref = data['REF'].values[0]
-    alt = data['ALT'].values[0]
-    
-    # Generate standardized genotype keys
-    homo_ref = ''.join(sorted(ref * 2))
-    het = ''.join(sorted(ref + alt))
-    homo_alt = ''.join(sorted(alt * 2))
-    
-    # Create conversion map based on format type
-    if format_type == "012":
-        conversion_map = {
-            homo_ref: '0',
-            het: '1',
-            homo_alt: '2'
-        }
-    elif format_type == "-101":
-        conversion_map = {
-            homo_ref: '-1',
-            het: '0',
-            homo_alt: '1'
-        }
-    
+    ref_allele = data['REF'].values[0]
+    alt_allele = data['ALT'].values[0]
+    genotype_map = get_binary_genotype_map(ref_allele, alt_allele)
+        
+    # Convert genotypes to binary values based on the mapping
     for col in data.columns[5:]:
-        data[col] = data[col].apply(
-            lambda x: conversion_map.get(''.join(sorted(str(x))), '-9') 
-            if pd.notna(x) else '-9'
-        )
+        data[col] = data[col].apply(lambda x: genotype_map.get(x) if pd.notna(x) else '-9')
     
     return data
 
