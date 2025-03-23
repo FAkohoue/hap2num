@@ -61,9 +61,29 @@ The processed output file can be used for downstream genetic analyses such as GW
 and population structure analysis.
 
 """
+## 🛠 Requirements**
+- Python 3.7+
+- pandas
+- numpy
+- tqdm
 
 ## Installation
 
 To install from GitHub:
 ```bash
 pip install git+https://github.com/FAkohoue/hap2num.git
+
+```
+## ** Usage **
+```python
+import hap2num
+from hap2num.converter import process_numeric_to_hapmap
+
+process_hap_to_numeric(
+    input_file="Input_hapmap_genotype.csv",
+    output_file="Output_numeric_genotype.csv", 
+    num_processes = 60, # Optimize based on system resources
+    batch_size = 5000, # Adjust based on dataset size
+    format_type="012", # Use "-101" if needed
+    chunk_size = 1000 # Adjust based on dataset size
+)

@@ -22,11 +22,3 @@ setup(
     ],
     python_requires='>=3.6',
 )
-
-# Suppress warnings globally
-import warnings
-warnings.simplefilter("ignore")
-
-def warn(*args, **kwargs):
-    pass
-warnings.warn = warn
