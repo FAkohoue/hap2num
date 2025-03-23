@@ -57,6 +57,13 @@ The processed output file can be used for downstream genetic analyses such as GW
 and population structure analysis.
 
 """
+# Remove warnings
+def warn(*args, **kwargs):
+    pass
+import warnings
+warnings.warn = warn
+
+# Load required libraries
 import os
 import pandas as pd
 import numpy as np
@@ -67,37 +74,41 @@ from io import StringIO
 import warnings
 
 def convert_genotypes(args):
-    """Convert genotypes to numeric format."""
-    marker, data, genotype_values = args
-    ref_allele = data['REF'].values[0]
-    alt_allele = data['ALT'].values[0]
+    """Convert genotypes to numeric format using explicit allele combinations."""
+    marker, data, format_type = args
+    ref = data['REF'].values[0]
+    alt = data['ALT'].values[0]
+    
+    # Generate standardized genotype keys
+    homo_ref = ''.join(sorted(ref * 2))
+    het = ''.join(sorted(ref + alt))
+    homo_alt = ''.join(sorted(alt * 2))
+    
+    # Create conversion map based on format type
+    if format_type == "012":
+        conversion_map = {
+            homo_ref: '0',
+            het: '1',
+            homo_alt: '2'
+        }
+    elif format_type == "-101":
+        conversion_map = {
+            homo_ref: '-1',
+            het: '0',
+            homo_alt: '1'
+        }
     
     for col in data.columns[5:]:
-        data[col] = data[col].apply(lambda x: genotype_values.get(sum([x.count(ref_allele), x.count(alt_allele)]), '-9') if pd.notna(x) else '-9')
+        data[col] = data[col].apply(
+            lambda x: conversion_map.get(''.join(sorted(str(x))), '-9') 
+            if pd.notna(x) else '-9'
+        )
     
-    data['marker'] = marker
     return data
 
-    #remove warning
-def warn(*args, **kwargs):
-    pass
-import warnings
-warnings.warn = warn
-
-def process_hap_to_numeric(input_file: str, output_file: str, num_processes: int = 60, batch_size: int = 5000, 
-                            format_type: str = "012", chunk_size: int = 1000):
+def process_hap_to_numeric(input_file: str, output_file: str, num_processes: int = 60, 
+                          batch_size: int = 5000, format_type: str = "012", chunk_size: int = 1000):
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    
-    # Define genotype mappings based on format type
-    genotype_mappings = {
-        "012": {0: '0', 1: '1', 2: '2'},
-        "-101": {0: '-1', 1: '0', 2: '1'}
-    }
-    
-    if format_type not in genotype_mappings:
-        raise ValueError("Invalid format type. Choose either '012' or '-101'")
-    
-    genotype_values = genotype_mappings[format_type]
     
     required_columns = ["SNP", "CHR", "POS", "REF", "ALT"]
     
@@ -105,35 +116,35 @@ def process_hap_to_numeric(input_file: str, output_file: str, num_processes: int
         logging.info(f"Reading input file: {input_file}")
         df = pd.read_csv(input_file, sep=',')
         
-        # Ensure correct column order
         if list(df.columns[:5]) != required_columns:
-            raise ValueError(f"Input file must have the first five columns in order: {required_columns}")
+            raise ValueError(f"First five columns must be: {required_columns}")
         
         markers = df['SNP'].unique()
-        marker_data = [(marker, df[df['SNP'] == marker], genotype_values) for marker in markers]
+        marker_data = [(marker, df[df['SNP'] == marker], format_type) for marker in markers]
         
-        logging.info("Starting parallel genotype conversion...")
-        processed_data_batches = []
+        logging.info("Starting parallel conversion...")
+        processed_batches = []
         for i in range(0, len(marker_data), batch_size):
-            batch_data = marker_data[i:i+batch_size]
+            batch = marker_data[i:i+batch_size]
             with Pool(num_processes) as pool:
-                processed_batch = list(tqdm(pool.imap(convert_genotypes, batch_data), total=len(batch_data), desc="Converting"))
-            processed_data_batches.append(pd.concat(processed_batch))
+                results = list(tqdm(pool.imap(convert_genotypes, batch), total=len(batch), desc="Processing"))
+            processed_batches.append(pd.concat(results))
         
-        logging.info(f"Saving converted data to: {output_file}")
-        with open(output_file, 'w') as outfile:
+        logging.info(f"Writing output to {output_file}")
+        with open(output_file, 'w') as fout:
             header_written = False
-            for i, batch in enumerate(processed_data_batches):
-                csv_buffer = StringIO()
-                batch.to_csv(csv_buffer, index=False, sep='\t', quoting=1, chunksize=chunk_size)
-                csv_lines = csv_buffer.getvalue().splitlines()
+            for batch_idx, batch_df in enumerate(processed_batches):
+                buffer = StringIO()
+                batch_df.to_csv(buffer, index=False, sep='\t', quoting=1)
                 if not header_written:
-                    outfile.write(csv_lines[0] + '\n')
+                    fout.write(buffer.getvalue())
                     header_written = True
-                for line in csv_lines[1:]:
-                    outfile.write(line + '\n')
-                logging.info(f"Batch {i+1} written to {output_file}")
-        logging.info("All data successfully processed.")
+                else:
+                    fout.write(buffer.getvalue().split('\n', 1)[1])
+                logging.info(f"Batch {batch_idx+1} written")
+        
+        logging.info("Conversion completed successfully")
+    
     except Exception as e:
-        logging.error(f"Error during conversion: {e}")
+        logging.error(f"Error: {str(e)}")
         raise
