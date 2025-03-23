@@ -37,9 +37,9 @@ Parameters:
         - Heterozygous (AT) → 1
         - Homozygous alternate (TT) → 2
     * "-101": Encodes genotypes as follows:
-        - Homozygous reference (AA) → -1
+        - Homozygous reference (AA) → 1
         - Heterozygous (AT) → 0
-        - Homozygous alternate (TT) → 1
+        - Homozygous alternate (TT) → -1
 - chunk_size (int, optional): Number of rows written to file per iteration. Default is 1000. 
   This allows flexibility for users with smaller datasets.
 
@@ -78,7 +78,7 @@ pip install git+https://github.com/FAkohoue/hap2num.git@main
 pip install git+https://github.com/FAkohoue/hap2num.git@v0.1.0
 
 ```
-## ** Usage **
+## Usage
 **For all versions**
 ```python
 import hap2num

@@ -33,9 +33,9 @@ Parameters:
         - Heterozygous (AT) → 1
         - Homozygous alternate (TT) → 2
     * "-101": Encodes genotypes as follows:
-        - Homozygous reference (AA) → -1
+        - Homozygous reference (AA) → 1
         - Heterozygous (AT) → 0
-        - Homozygous alternate (TT) → 1
+        - Homozygous alternate (TT) → -1
 - chunk_size (int, optional): Number of rows written to file per iteration. Default is 1000. 
   This allows flexibility for users with smaller datasets.
 
@@ -82,10 +82,10 @@ def get_binary_genotype_map(ref_allele, alt_allele, format_type: str = "012"):
             f'{alt_allele}{alt_allele}': '2'
         },
         '-101': {
-            f'{ref_allele}{ref_allele}': '-1',
+            f'{ref_allele}{ref_allele}': '1',
             f'{ref_allele}{alt_allele}': '0',
             f'{alt_allele}{ref_allele}': '0',
-            f'{alt_allele}{alt_allele}': '1'
+            f'{alt_allele}{alt_allele}': '-1'
         }
     }[format_type]
 
