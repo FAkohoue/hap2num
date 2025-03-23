@@ -26,7 +26,6 @@ Parameters:
 - input_file (str): Path to the input CSV file containing SNP genotype data.
 - output_file (str): Path to save the converted numeric genotype data.
 - num_processes (int, optional): Number of parallel processes for computation. Default is 60.
-- batch_size (int, optional): Number of SNP markers processed per batch. Default is 5000.
 - format_type (str, optional): Numeric format for genotype encoding.
     Options:
     * "012": Encodes genotypes as follows:
@@ -57,96 +56,110 @@ The processed output file can be used for downstream genetic analyses such as GW
 and population structure analysis.
 
 """
-# Remove warnings
-def warn(*args, **kwargs):
-    pass
-import warnings
-warnings.warn = warn
-
 # Load required libraries
 import os
 import pandas as pd
 import numpy as np
 import logging
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
-from io import StringIO
+from functools import partial
 import warnings
+
+# Suppress warnings for cleaner output
+warnings.filterwarnings("ignore")
 
 # Create conversion map based on format type
 def get_binary_genotype_map(ref_allele, alt_allele, format_type: str = "012"):
-    if format_type == "012":
-        return {
+    if format_type not in {"012", "-101"}:
+        raise ValueError("Invalid format_type. Choose '012' or '-101'.")
+
+    return {
+        '012': {
             f'{ref_allele}{ref_allele}': '0',
             f'{ref_allele}{alt_allele}': '1',
             f'{alt_allele}{ref_allele}': '1',
             f'{alt_allele}{alt_allele}': '2'
-        }
-    elif format_type == "-101":
-        return {
+        },
+        '-101': {
             f'{ref_allele}{ref_allele}': '-1',
             f'{ref_allele}{alt_allele}': '0',
             f'{alt_allele}{ref_allele}': '0',
             f'{alt_allele}{alt_allele}': '1'
         }
-    else:
-        raise ValueError("Invalid output format_type. Choose either '012' or '-101'.")
+    }[format_type]
 
-def convert_genotypes(args):
-    """Convert genotypes to numeric format using explicit allele combinations."""
-    marker, data, format_type = args
-    ref_allele = data['REF'].values[0]
-    alt_allele = data['ALT'].values[0]
-    genotype_map = get_binary_genotype_map(ref_allele, alt_allele, format_type)
+def process_row(row, format_type):
+    """Process a single row with vectorized operations"""
+    ref = row['REF']
+    alt = row['ALT']
+    genotype_map = get_binary_genotype_map(ref, alt, format_type)
     
-    # Convert genotypes to binary values based on the mapping
-    sample_cols = data.columns[5:]
-    for col in sample_cols:
-        data[col] = data[col].apply(lambda x: genotype_map.get(x, '-9') if pd.notna(x) else '-9')
+    # Vectorized replacement for all sample columns
+    sample_data = row[5:].replace(genotype_map)
+    # Handle missing/unmapped values
+    sample_data = sample_data.where(sample_data.isin(genotype_map.values()), '-9')
     
-    return data
+    return pd.concat([row[:5], sample_data])
 
-def process_hap_to_numeric(input_file: str, output_file: str, num_processes: int = 60, 
-                          batch_size: int = 5000, format_type: str = "012", chunk_size: int = 1000):
+def process_chunk(chunk, format_type):
+    """Process a chunk of rows with vectorized row operations"""
+    return chunk.apply(process_row, axis=1, format_type=format_type)
+
+def process_hap_to_numeric(input_file: str, output_file: str, 
+                          num_processes: int = None, 
+                          chunk_size: int = 1000,
+                          format_type: str = "012"):
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
+    # Validate format type before proceeding
+    if format_type not in {"012", "-101"}:
+        raise ValueError("Invalid format_type. Choose '012' or '-101'.")
+
     required_columns = ["SNP", "CHR", "POS", "REF", "ALT"]
     
     try:
+        # Auto-detect CPU cores if not specified
+        num_processes = num_processes or cpu_count()
+        
         logging.info(f"Reading input file: {input_file}")
-        df = pd.read_csv(input_file, sep=',')
+        df = pd.read_csv(input_file, sep=',', dtype={'CHR': str})
         
         if list(df.columns[:5]) != required_columns:
             raise ValueError(f"First five columns must be: {required_columns}")
         
-        # Convert sample columns to strings to avoid dtype issues
+        # Pre-convert sample columns to categorical type
         sample_cols = df.columns[5:]
-        df[sample_cols] = df[sample_cols].astype(str)
+        df[sample_cols] = df[sample_cols].astype('category')
         
-        markers = df['SNP'].unique()
-        marker_data = [(marker, df[df['SNP'] == marker], format_type) for marker in markers]
+        # Split data into row chunks for parallel processing
+        total_rows = len(df)
+        chunks = [df.iloc[i:i+chunk_size] for i in range(0, total_rows, chunk_size)]
         
-        logging.info("Starting parallel conversion...")
-        processed_batches = []
-        for i in range(0, len(marker_data), batch_size):
-            batch = marker_data[i:i+batch_size]
-            with Pool(num_processes) as pool:
-                results = list(tqdm(pool.imap(convert_genotypes, batch), total=len(batch), desc="Processing"))
-            processed_batches.append(pd.concat(results))
+        logging.info(f"Processing {total_rows} SNPs in {len(chunks)} chunks using {num_processes} cores")
+        
+        # Create partial function for static parameters
+        process_chunk_partial = partial(process_chunk, format_type=format_type)
+        
+        with Pool(num_processes) as pool:
+            results = []
+            with tqdm(total=len(chunks), desc="Processing chunks") as pbar:
+                for chunk_result in pool.imap(process_chunk_partial, chunks):
+                    results.append(chunk_result)
+                    pbar.update()
+        
+        logging.info("Combining results and optimizing memory")
+        final_df = pd.concat(results, ignore_index=True)
+        
+        # Convert categorical back to string for output
+        final_df[sample_cols] = final_df[sample_cols].astype(str)
         
         logging.info(f"Writing output to {output_file}")
-        with open(output_file, 'w') as fout:
-            header_written = False
-            for batch_idx, batch_df in enumerate(processed_batches):
-                buffer = StringIO()
-                batch_df.to_csv(buffer, index=False, sep='\t', header=not header_written, quoting=1)
-                fout.write(buffer.getvalue())
-                if not header_written:
-                    header_written = True
-                logging.info(f"Batch {batch_idx+1} written")
+        final_df.to_csv(output_file, index=False, encoding='utf-8')
         
         logging.info("Conversion completed successfully")
+        return True
     
     except Exception as e:
-        logging.error(f"Error: {str(e)}")
-        raise
+        logging.error(f"Critical error: {str(e)}")
+        raise RuntimeError(f"Processing failed: {str(e)}") from e
