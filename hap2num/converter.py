@@ -74,7 +74,7 @@ from io import StringIO
 import warnings
 
 # Create conversion map based on format type
-def get_binary_genotype_map(ref_allele, alt_allele):
+def get_binary_genotype_map(ref_allele, alt_allele, format_type: str = "012"):
     if format_type == "012":
         return {
             f'{ref_allele}{ref_allele}': '0',
@@ -97,7 +97,7 @@ def convert_genotypes(args):
     marker, data, format_type = args
     ref_allele = data['REF'].values[0]
     alt_allele = data['ALT'].values[0]
-    genotype_map = get_binary_genotype_map(ref_allele, alt_allele)
+    genotype_map = get_binary_genotype_map(ref_allele, alt_allele, format_type)
         
     # Convert genotypes to binary values based on the mapping
     for col in data.columns[5:]:
