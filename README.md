@@ -71,7 +71,7 @@ and population structure analysis.
 
 To install from GitHub:
 ```bash
-pip install git+https://github.com/FAkohoue/hap2num.git
+pip install git+https://github.com/FAkohoue/hap2num.git@v0.1.0
 
 ```
 ## ** Usage **
