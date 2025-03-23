@@ -74,7 +74,7 @@ To install from GitHub:
 pip install git+https://github.com/FAkohoue/hap2num.git@v0.1.0
 
 ```
-## ** Usage **
+## Usage
 ```python
 import hap2num
 from hap2num.converter import process_numeric_to_hapmap
