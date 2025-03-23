@@ -30,7 +30,6 @@ Parameters:
 - input_file (str): Path to the input CSV file containing SNP genotype data.
 - output_file (str): Path to save the converted numeric genotype data.
 - num_processes (int, optional): Number of parallel processes for computation. Default is 60.
-- batch_size (int, optional): Number of SNP markers processed per batch. Default is 5000.
 - format_type (str, optional): Numeric format for genotype encoding.
     Options:
     * "012": Encodes genotypes as follows:
@@ -69,21 +68,39 @@ and population structure analysis.
 
 ## Installation
 
-To install from GitHub:
+**To install the latest version (0.1.1):**
 ```bash
-pip install git+https://github.com/FAkohoue/hap2num.git
+pip install git+https://github.com/FAkohoue/hap2num.git@main
+
+```
+**To install the previous version (0.1.0):**
+```bash
+pip install git+https://github.com/FAkohoue/hap2num.git@v0.1.0
 
 ```
 ## ** Usage **
+**For all versions**
 ```python
 import hap2num
 from hap2num.converter import process_numeric_to_hapmap
-
+```
+**For the latest version (0.1.1):**
+```python
 process_hap_to_numeric(
     input_file="Input_hapmap_genotype.csv",
     output_file="Output_numeric_genotype.csv", 
     num_processes = 60, # Optimize based on system resources
-    batch_size = 5000, # Adjust based on dataset size
     format_type="012", # Use "-101" if needed
+    chunk_size = 1000 # Adjust based on dataset size
+)
+```
+**For the previous version (0.1.0):**
+```python
+process_hap_to_numeric(
+    input_file="Input_hapmap_genotype.csv",
+    output_file="Output_numeric_genotype.csv", 
+    num_processes = 60, # Optimize based on system resources
+    format_type="012", # Use "-101" if needed
+    batch_size = 5000, # Adjust based on dataset size
     chunk_size = 1000 # Adjust based on dataset size
 )
