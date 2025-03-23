@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="hap2num",
-    version="0.1",
+    version="0.1.0",
     author="Félicien Akohoue",
     author_email="akohoue.f@gmail.com",
     description="A package for converting haplotype genotype data to numeric format",
